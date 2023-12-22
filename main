@@ -1,0 +1,81 @@
+import lxml
+import requests
+from bs4 import BeautifulSoup
+
+def parse_hh_vacancies(keyword):
+    base_url = 'https://hh.ru'
+    vacancies = []
+    page = 0
+
+    headers = {
+        'authority': 'hh.ru',
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'accept-language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        'cache-control': 'max-age=0',
+        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'same-origin',
+        'sec-fetch-user': '?1',
+        'upgrade-insecure-requests': '1',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+
+    while True:
+        url = f'{base_url}/search/vacancy?clusters=true&enable_snippets=true&text={keyword}&page={page}'
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            print(f"Error accessing the site. Status code: {response.status_code}")
+            break
+
+        soup = BeautifulSoup(response.text, 'lxml')
+
+        vacancy_items = soup.find_all('div', class_='vacancy-serp-item__layout')
+        if not vacancy_items:
+            print(f"No more pages for keyword: {keyword}")
+            break
+
+        for item in vacancy_items:
+            title_element = item.find('a', class_='serp-item__title')
+            if title_element:
+                title = title_element.text.strip()
+
+            company_element = item.find('a', class_='bloko-link bloko-link_kind-tertiary')
+            if company_element:
+                company = company_element.text.strip()
+
+            salary_element = item.find('span', class_='bloko-header-section-2')
+            if salary_element:
+                salary = salary_element.text.strip()
+            else:
+                salary = 'З/п не указана'
+
+            description = item.find('div', class_='g-user-content')
+            if description:
+                descr = description.text.strip()
+            else:
+                descr = 'без описания'
+
+            link = title_element.get('href') if title_element else 'Ссылка не найдена'
+
+            vacancies.append({
+                'title': title,
+                'company': company,
+                'salary': salary,
+                'description': descr,
+                'link': link
+            })
+
+        page += 1
+
+    return vacancies
+
+
+keyword = 'python junior'
+result = parse_hh_vacancies(keyword)
+
+for vacancy in result:
+    print(f'Title: {vacancy["title"]}\nCompany: {vacancy["company"]}\nSalary: {vacancy["salary"]}\nDescription: {vacancy["description"]}\nlink: {vacancy["link"]}\n')
